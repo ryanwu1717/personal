@@ -131,8 +131,16 @@ window.onblur = function () {
   window.isTabActive = false; 
 };
 
-
-
+$(function(){
+  $.ajax({
+    url:'/checkSession/'+todayDate,
+    type:'get',
+    dataType:'json',
+    success:function(response){
+      // console.log(response);
+    }
+  });
+});
 
 
 
@@ -406,7 +414,7 @@ function init(){
 init();
 var ajax = null;
 function routine(){
-  
+
   if(ajax!=null)
     ajax.abort();
   ajax = $.ajax({
@@ -439,6 +447,8 @@ function routine(){
         $('.msg_history').scrollTop($('.outgoing_msg[data-senttime = "'+tmpTagMsg+'"]')[0].offsetTop-$('.msg_history')[0].offsetTop);
         tmpTagMsg = "";
       }
+
+
       routine();
     }
   });
@@ -527,7 +537,9 @@ var dd = '';
 
 function changeClass(type,data,oldClass){
   function addClass(key,value){
-    // console.log(value);
+
+    
+
     $('[name=inbox_chat]').append(
       '<div class="card" name = "class'+value.id+'">'+
         '<div class="card-header" id="headingOne">'+
@@ -536,7 +548,7 @@ function changeClass(type,data,oldClass){
             '<button class="btn btn-link" type="button" data-toggle="collapse" data-target="#class'+value.id+'" aria-expanded="true" aria-controls="class'+value.id+'">'+
               value.name+
             '</button>'+
-              '<h5><span class="badge badge-primary"  data-num="0" id = "countAllUnread'+value.id+'">0</span></h5>'+
+              '<h5><span class="badge badge-primary"  data-num="0" id = "countAllUnread'+value.id+'">'+value.sum+'</span></h5>'+
             '</h2>'+
           '</div>'+
         '</div>'+
@@ -544,6 +556,9 @@ function changeClass(type,data,oldClass){
         '</div>'+
       '</div>'
     );
+    if(value.sum == 0){
+      $('#countAllUnread'+value.id).hide();
+    }
   }
   function deleteClass(key,value){
     $('[name=class'+value.id+']').find('.chat_list').each(function(){
@@ -557,10 +572,13 @@ function changeClass(type,data,oldClass){
       '</div>'
     );
     $(data).each(addClass);
-    addClass(null,{id:0,name:"未分類議題"});
+    // addClass(null,{id:0,name:"未分類議題"});
   }else if(type=='routine'){
     $.each(data.change,function(){
       $('[name=class'+this.id+']').find('button').text(this.name);
+    });
+    $.each(data.changeNum,function(){
+      $('#countAllUnread'+this.id).html(this.sum);
     });
     // $(oldClass).each(addClass);
     $.each(oldClass,function(){
@@ -579,7 +597,7 @@ function changeChatroom(type,data){
     // console.log(value);
     var tmpClass = (value.classID==null?0:value.classID);
     var chatName ='';
-
+    // var  tmpAddCount=0;
 
     if (this.chatName==''){
       chatName=this.staff_name;
@@ -588,6 +606,7 @@ function changeChatroom(type,data){
       chatName=this.chatName;
     }
     var haveUnread ='';
+    var unreatmpAddCountdNum =0;
     
     clearTimeout(notify['Unread']);
     $('title').text(titleOrg);
@@ -596,25 +615,27 @@ function changeChatroom(type,data){
       clearTimeout(notify['Unread']);
       notify['Unread'] = setTimeout(notifyUnread,1000);
 
-      var tmpAddCount = parseInt(value.CountUnread);
-      var tmpAllCount = parseInt($('#countAllUnread'+tmpClass).text());
-      $('#countAllUnread'+tmpClass).html(tmpAllCount+tmpAddCount);
+      // tmpAddCount = parseInt(value.CountUnread);
+      // var tmpAllCount = parseInt($('#countAllUnread'+tmpClass).text());
+      // $('#countAllUnread'+tmpClass).html(tmpAllCount+tmpAddCount);
     }
     else{
+      // tmpAddCount = 0;
       haveUnread ='<span class="badge badge-primary" style="display:none;">'+value.CountUnread+'</span> ';
+
     }
     
-    if($('#countAllUnread'+tmpClass).text() == 0){
-      $('#countAllUnread'+tmpClass).hide();
-    }else{
-      $('#countAllUnread'+tmpClass).show();
-    }
+    // if($('#countAllUnread'+tmpClass).text() == 0){
+    //   $('#countAllUnread'+tmpClass).hide();
+    // }else{
+    //   $('#countAllUnread'+tmpClass).show();
+    // }
 
     
     
     $('#class'+tmpClass).append(
       '<div class="" name="room'+value.chatID+'">'+
-        '<div class="chat_list" name="beSearchRoom" onclick="getTarget('+value.chatID+',\''+encodeURIComponent(chatName)+'\');" data-name="'+value.chatID+'" data-roomName="'+chatName+'">'+
+        '<div class="chat_list" name="beSearchRoom" onclick="getTarget('+value.chatID+',\''+encodeURIComponent(chatName)+'\');" data-name="'+value.chatID+'" data-roomName="'+chatName+'" >'+
         '<div class="chat_people">'+
           '<div class="chat_img">'+
             '<div class="circleBase type2"></div>'+
@@ -632,11 +653,17 @@ function changeChatroom(type,data){
   if(type=='init'){
     $(data).each(addChatRoom);
   }else if(type=='routine'){
+    // $('.chat_list[data-name="'+_chatID+'"]')
+
     $.each(data.result.chatroom.new,function(){
       $(this).each(addChatRoom);
+
     });
     $.each(data.result.chatroom.delete,function(){
+      console();
+      $('.chat_list[data-name="'+this.chatID+'"]').data('unread');
       $('[name=room'+this.chatID+']').remove();
+
       // $(this).each(addChatRoom);
     });
     // $(data.result.chatroom.new).each(addChatRoom);
@@ -817,6 +844,7 @@ function getTarget(_chatID,_chatName){
   // scrollable = false;
   // last['count'] = 0;
   // $('[name=chatBox]').html("");
+
   start = Date.now();
   if(chatID!=_chatID)
     $('[name=chatBox]').html(

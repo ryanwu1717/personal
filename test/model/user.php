@@ -1098,7 +1098,8 @@ use Slim\Http\UploadedFile;
 			'unchange'=>0,
 			'delete'=>1,
 			'new'=>2,
-			'changeName'=>3
+			'changeName'=>3,
+			'changeNum'=>4
 		);
 		function checkNotification($old,$new){
 			// var_dump($old[0][count]);
@@ -1113,15 +1114,22 @@ use Slim\Http\UploadedFile;
 		}
 		function checkClass($a, $b) {
 		    $map = $out = array();
-		    $out['delete'] = $out['new'] = $out['change'] = array();
+		    $out['delete'] = $out['new'] = $out['change'] =  $out['changeNum'] =array();
 		    foreach($a as $val) {$map[$val['id']]['type'] = $this->classState['delete']; $map[$val['id']]['data'] = $val;}
 		    foreach($b as $val) {
+		    	// var_dump($map[$val['id']]['data']['sum'],$val['sum'])
 		    	if(isset($map[$val['id']])) {	
 		    		if($map[$val['id']]['data']['name']!=$val['name']) {
 		    			$map[$val['id']]['type'] = $this->classState['changeName'];
 		    			$map[$val['id']]['data'] = $val;
 		    			$this->change=true;
-		    		} else {
+		    		} else if ($map[$val['id']]['data']['sum']!=$val['sum']){
+		    			// var_dump(val['sum']);
+		    			$map[$val['id']]['type'] = $this->classState['changeNum'];
+		    			$map[$val['id']]['data'] = $val;
+		    			$this->change=true;
+
+		    		}else {
 		    			$map[$val['id']]['type'] = $this->classState['unchange'];
 		    			$map[$val['id']]['data'] = $val;
 		    		} 
@@ -1131,7 +1139,7 @@ use Slim\Http\UploadedFile;
 	    			$this->change=true;
 		    	}
 			}
-		    foreach($map as $val => $ok) if($ok['type']==1) {$out['delete'][] = $ok['data']; $this->change=true;} else if($ok['type']==2) $out['new'][] = $ok['data']; else if($ok['type']==3) $out['change'][] = $ok['data'];
+		    foreach($map as $val => $ok) if($ok['type']==1) {$out['delete'][] = $ok['data']; $this->change=true;} else if($ok['type']==2) $out['new'][] = $ok['data']; else if($ok['type']==3) $out['change'][] = $ok['data'];else if($ok['type']==4) $out['changeNum'][] = $ok['data'];
 		    return $out;
 		}
 		var $readCountState = array(
@@ -1243,10 +1251,35 @@ use Slim\Http\UploadedFile;
 			$staff_id = $_SESSION['id'];		
 			if(is_null($classID)){
 				$sql ='
-					SELECT  name,id
-					FROM staff_chat."chatClass"
-					WHERE "UID" = :id
-					ORDER BY name
+					SELECT (case WHEN  "lastTable".id IS NULL  then 0 ELSE "lastTable".id 
+						END) AS id,(case WHEN  "lastTable".name IS NULL  then \'未命名議題\' ELSE "lastTable".name 
+						END)AS name,SUM("lastTable"."tmpUnread")
+					FROM(
+						SELECT "tmpClassify"."classID", SUM("tmpClassify"."CountUnread")as "tmpUnread" ,"allclass".id ,"allclass".name
+						FROM (
+							SELECT "countUnread"."chatID","countUnread"."UID",COUNT("countUnread"."c")as "CountUnread","cClassify"."classID"
+							FROM(
+								SELECT "chatHistory"."chatID",  "chatHistory"."UID",(case when "time"<"sentTime" then \'1\' else null end) as "c"
+								FROM staff_chat."chatHistory"
+								join staff_chat."chatContent" on "chatHistory"."chatID"="chatContent"."chatID"
+								where "chatHistory"."UID"=:id and "chatContent"."UID" != :id
+							) as "countUnread"
+							LEFT JOIN (
+								SELECT "chatClassify"."classID" as "classID", "chatClassify"."chatID", "chatClassify"."UID"
+								FROM staff_chat."chatClassify"
+								where "chatClassify"."UID"=:id
+							)as "cClassify" on "cClassify"."chatID" = "countUnread"."chatID"
+							group by "countUnread"."chatID","countUnread"."UID","cClassify"."classID"
+						)as "tmpClassify"
+						LEFT JOIN(
+							SELECT  name,id
+							FROM staff_chat."chatClass"
+							WHERE "UID" = :id
+						)as "allclass" on "allclass".id = "tmpClassify"."classID"
+						GROUP BY "tmpClassify"."classID", "tmpClassify"."CountUnread" ,"allclass".id,"allclass".name
+
+					)as "lastTable"
+					GROUP BY "lastTable".id,"lastTable".name
 				';
 				$statement = $this->conn->prepare($sql);
 			}else{
