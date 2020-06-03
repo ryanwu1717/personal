@@ -338,9 +338,8 @@ $app->group('/chat', function () use ($app) {
 	    return $response;
 	});
 	$app->get('/routine/{timestamp}/{chatID}', function (Request $request, Response $response, array $args) {
-		$data = $_SESSION['last'][$args['timestamp']];
 		$chat = new Chat($this->db);
-		$result = $chat->routine($data,$args['chatID']);
+		$result = $chat->routine($args['timestamp'],$args['chatID']);
 		if(empty($result)){
 			return $response;
 		}
@@ -464,6 +463,13 @@ $app->group('/chat', function () use ($app) {
 	$app->patch('/comment', function (Request $request, Response $response, array $args) { //TODO
 		$chat = new Chat($this->db);
 		$result = $chat->updateComment($request->getParsedBody());
+	    $response = $response->withHeader('Content-type', 'application/json' );
+		$response = $response->withJson($result);
+	    return $response;
+	});
+	$app->get('/lastOnLine/{UID}', function (Request $request, Response $response, array $args) {
+		$chat = new Chat($this->db);
+		$result = $chat->getLastOnLine($args['UID']);
 	    $response = $response->withHeader('Content-type', 'application/json' );
 		$response = $response->withJson($result);
 	    return $response;
@@ -593,6 +599,30 @@ $app->group('/chat', function () use ($app) {
 			$response = $response->withJson($result);
 		    return $response;
 		    
+		});
+	});
+
+	$app->group('/star', function () use ($app) {
+		$app->get('', function(Request $request, Response $response, array $args){
+			$star = new Chat($this->db);
+			$result = $star->getStar();
+			$response = $response->withHeader('Content-type', 'application/json' );
+			$response = $response->withJson($result);
+		    return $response;
+		});
+		$app->post('', function(Request $request, Response $response, array $args){
+			$star = new Chat($this->db);
+			$result = $star->addStar();
+			$response = $response->withHeader('Content-type', 'application/json' );
+			$response = $response->withJson($result);
+		    return $response;
+		});
+		$app->delete('', function(Request $request, Response $response, array $args){
+			$star = new Chat($this->db);
+			$result = $star->deleteStar();
+			$response = $response->withHeader('Content-type', 'application/json' );
+			$response = $response->withJson($result);
+		    return $response;
 		});
 	});
 
