@@ -51,7 +51,7 @@ $container['notFoundHandler'] = function ($container) {
 $container['ViewMiddleware'] = function($container) {
     return new ViewMiddleware($container->db);
 };
-$container['upload_directory'] ='C:\inetpub\wwwroot\uploads';
+$container['upload_directory'] = __DIR__.'/../uploads';
 
 session_start();
 require_once __DIR__.'/../route/management.php';
@@ -97,11 +97,17 @@ $app->group('', function () use ($app) {
 			$viewParam = $request->getAttribute('viewParam');	
 			return $this->view->render($response, '/test.php', $viewParam);
 		});
-		$app->get('/checkin', function (Request $request, Response $response, array $args) {	
-			$viewParam = $request->getAttribute('viewParam');	
-			return $this->view->render($response, '/employeeCheckin.php', $viewParam);
-
+		$app->group('/checkin', function () use ($app) {
+			$app->get('', function (Request $request, Response $response, array $args) {	
+				$viewParam = $request->getAttribute('viewParam');	
+				return $this->view->render($response, '/employeeCheckin.php', $viewParam);
+			});
+			$app->get('/table', function (Request $request, Response $response, array $args) {	
+				$viewParam = $request->getAttribute('viewParam');	
+				return $this->view->render($response, '/checkinTable.php', $viewParam);
+			});
 		});
+			
 		$app->get('/issue', function (Request $request, Response $response, array $args) {
 			$viewParam = $request->getAttribute('viewParam');
 			return $this->view->render($response, '/issue.php', $viewParam);
@@ -377,7 +383,17 @@ $app->group('/chat', function () use ($app) {
 		session_start();
 	    $response = $response->withHeader('Content-type', 'application/json' );
 		$response = $response->withJson($result);
+		$_SESSION['chat'][$_SESSION['id']][$args['chatID']] = $result;
 		$_SESSION['last'][$args['timestamp']] = $result;
+	    return $response;
+	});
+	$app->get('/saveChat/{chatID}', function (Request $request, Response $response, array $args) {
+		$chat = new Chat($this->db);
+		$result = $chat->getSaveChat($args['chatID']);
+		if(empty($result)){
+			return $response;
+		}
+		$response = $response->withJson($result);
 	    return $response;
 	});
 	$app->get('/list', function (Request $request, Response $response, array $args) {
@@ -757,13 +773,52 @@ $app->group('/chat', function () use ($app) {
 })->add('ViewMiddleware');
 
 $app->group('/work', function () use ($app) {
-	$app->post('/checkin', function (Request $request, Response $response, array $args) {
-	    $work = new Work($this->db);
-	    $result = $work->employeeCheckin();   
-	    $response = $response->withHeader('Content-type', 'application/json' );
-		$response = $response->withJson($result);
-	    return $response;
-	    
+	$app->group('/checkin', function () use ($app) {
+		$app->post('', function (Request $request, Response $response, array $args) {
+		    $work = new Work($this->db);
+		    $result = $work->employeeCheckin();   
+		    $response = $response->withHeader('Content-type', 'application/json' );
+			$response = $response->withJson($result);
+		    return $response;
+		    
+		});
+		$app->get('/term/{start}/{end}', function (Request $request, Response $response, array $args) {
+		    $work = new Work($this->db);
+		    $result = $work->getCheckin($args['start'],$args['end']);   
+		    $response = $response->withHeader('Content-type', 'application/json' );
+			$response = $response->withJson($result);
+		    return $response;
+		    
+		});
+		$app->get('/by/{type}', function (Request $request, Response $response, array $args) {
+		    $work = new Work($this->db);
+		    $result = $work->getCheckinBy($args['type'],null,null);   
+
+		    $response = $response->withHeader('Content-type', 'application/json' );
+			$response = $response->withJson($result);
+		    return $response;
+		    
+		});
+	});
+		
+	$app->group('/makeup', function () use ($app) {
+		$app->post('', function (Request $request, Response $response, array $args) {
+		    $work = new Work($this->db);
+		    $result = $work->makeup();   
+		    $response = $response->withHeader('Content-type', 'application/json' );
+			$response = $response->withJson($result);
+		    return $response;
+		    
+		});
+		$app->post('/check', function (Request $request, Response $response, array $args) {
+		    $work = new Work($this->db);
+		    $result = $work->checkMakeup();   
+		    $response = $response->withHeader('Content-type', 'application/json' );
+			$response = $response->withJson($result);
+		    return $response;
+		    
+		});
+
 	});
 	$app->get('/check/{todayDate}', function (Request $request, Response $response, array $args) {
 	    $staff = new Work($this->db);
@@ -828,10 +883,62 @@ $app->group('/work', function () use ($app) {
 		    return $response;
 		});
 
+		$app->post('/record', function (Request $request, Response $response, array $args) {
+		    $staff = new Work($this->db);
+		    $result = $staff->record();
+		    $response = $response->withHeader('Content-type', 'application/json' );
+			$response = $response->withJson($result);
+		    return $response;
+		});
+
+		$app->post('/recordData', function (Request $request, Response $response, array $args) {
+		    $staff = new Work($this->db);
+		    $result = $staff->recordData();
+		    $response = $response->withHeader('Content-type', 'application/json' );
+			$response = $response->withJson($result);
+		    return $response;
+		});
+
 		$app->get('/checkingData', function(Request $request, Response $response, array $args){
 			$staff = new Work($this->db);
 			$result = $staff->checkingData();
 			$response = $response->withHeader('Content-type', 'application/json' );
+			$response = $response->withJson($result);
+		    return $response;
+		});
+
+		$app->get('/checkedData', function(Request $request, Response $response, array $args){
+			$staff = new Work($this->db);
+			$result = $staff->checkedData();
+			$response = $response->withHeader('Content-type', 'application/json' );
+			$response = $response->withJson($result);
+		    return $response;
+		});
+
+		$app->get('/applyData', function(Request $request, Response $response, array $args){
+			$staff = new Work($this->db);
+			$result = $staff->applyData();
+			$response = $response->withHeader('Content-type', 'application/json' );
+			$response = $response->withJson($result);
+		    return $response;
+		});
+
+		$app->patch('/agree/{dataID}', function (Request $request, Response $response, array $args) {
+			$_POST=$request->getParsedBody();
+			$staff = new Work($this->db);
+			$result = $staff->agreeApply($args['dataID']);
+			$result = array("status"=>"success");
+		    $response = $response->withHeader('Content-type', 'application/json' );
+			$response = $response->withJson($result);
+		    return $response;
+		});
+
+		$app->patch('/refuse/{dataID}', function (Request $request, Response $response, array $args) {
+			$_POST=$request->getParsedBody();
+			$staff = new Work($this->db);
+			$result = $staff->refuseApply($args['dataID']);
+			$result = array("status"=>"success");
+		    $response = $response->withHeader('Content-type', 'application/json' );
 			$response = $response->withJson($result);
 		    return $response;
 		});

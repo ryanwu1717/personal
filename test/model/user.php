@@ -1227,6 +1227,11 @@ use Slim\Http\UploadedFile;
 
 		}
 
+		function getSaveChat($chatID){
+			$UID = $_SESSION['id'];
+			return $_SESSION['chat'][$UID][$chatID];
+		}
+
 		function init(){
 			$class = $this->getClass();
 			$chatroom = $this->getChatroom();
@@ -1353,6 +1358,7 @@ use Slim\Http\UploadedFile;
 				);
 				$result['delete'] = $this->checkDelete($data['delete'],$delete);
 
+				$tmpchat = array_slice($chat, -10, 10);
                 $now = new DateTime( 'NOW' );
 
 			}
@@ -1364,6 +1370,7 @@ use Slim\Http\UploadedFile;
 				'class'=>$class,
 				'chatroom'=>$chatroom,
 				'chat'=>$chat,
+				'tmpchat'=>$tmpchat,
 				'comment'=>$comment,
 				'heart'=>$heart,
 				'delete'=>$delete,
@@ -1960,6 +1967,7 @@ use Slim\Http\UploadedFile;
 					order by "chatContent"."sentTime" desc
 				) as "tmpChatContent"
 				order by "tmpChatContent"."sentTime" asc
+				-- limit 10
 			';
 			$sth = $this->conn->prepare($sql);
 			$sth->bindParam(':UID',$_SESSION['id'],PDO::PARAM_STR);
@@ -2486,7 +2494,11 @@ use Slim\Http\UploadedFile;
 				$date = DateTime::createFromFormat('0.u00 U', microtime());
 			  	$timezone = new DateTimeZone('Asia/Taipei');
 			  	$date->setTimezone($timezone);
-			  	$tmpFullTime = $date->format('Y-m-d H:i:s.u').'+08';
+			  	$t = microtime(true);
+				$micro = sprintf("%06d",($t - floor($t)) * 1000000);
+				$d = new DateTime( date('Y-m-d H:i:s.'.$micro, $t) );
+			  	$d->setTimezone($timezone);
+			  	$tmpFullTime = $d->format("Y-m-d H:i:s.u").'+08';
 			  	// var_dump( $tmpFullTime);
 				$sql = 'INSERT INTO staff_chat."chatContent"(	content, "UID", "sentTime", "chatID")
 					VALUES ( :Msg , :UID , :fullTime, :chatID );';
@@ -2494,10 +2506,29 @@ use Slim\Http\UploadedFile;
 				$UID =$_SESSION['id'];
 				$chatID=$body['chatID'];
 				$Msg=$body['Msg'];
+				$sentMsg='';
+                $Msg=explode('<br />', $Msg);
+                $first = true;
+                foreach ($Msg as $key => $value) {
+                	if(!$first){
+                        $sentMsg .= '<br/>';
+                	}
+                    $MsgSplit = explode(" ", $value);
+                    foreach ($MsgSplit as $keySplit => $valueSplit) {
+                            if(strpos($valueSplit,'http://')==0&&strpos($valueSplit,'http://')!==false)
+                                    $sentMsg .= ' <a href="'.$valueSplit.'" style="color:#CCEEFF;" target="_blank">'.$valueSplit.'</a>';
+                            else if(strpos($valueSplit,'https://')==0&&strpos($valueSplit,'https://')!==false)
+                                    $sentMsg .= ' <a href="'.$valueSplit.'" style="color:#CCEEFF;" target="_blank">'.$valueSplit.'</a>';
+
+                            else
+                                    $sentMsg .= ' '.$valueSplit;
+                    }
+                    $first = false;
+                }
 				$sth->bindParam(':UID',$UID,PDO::PARAM_STR);
 				$sth->bindParam(':chatID',$chatID,PDO::PARAM_INT);
 				$sth->bindParam(':fullTime',$tmpFullTime,PDO::PARAM_INT);
-				$sth->bindParam(':Msg',$Msg,PDO::PARAM_INT);
+				$sth->bindParam(':Msg',$sentMsg,PDO::PARAM_INT);
 				$sth->execute();
 				// $insert_id = $this->conn->lastInsertId();
 
@@ -2516,12 +2547,30 @@ use Slim\Http\UploadedFile;
 			return $ack;
 		}
 		function insertComment($commentID,$content){
-			
+			$sentMsg='';
+			$content=explode('<br />', $content);
+			$first = true;
+			foreach ($content as $key => $value) {
+				if(!$first){
+			        $sentMsg .= '<br/>';
+				}
+			    $MsgSplit = explode(" ", $value);
+			    foreach ($MsgSplit as $keySplit => $valueSplit) {
+			            if(strpos($valueSplit,'http://')==0&&strpos($valueSplit,'http://')!==false)
+			                    $sentMsg .= ' <a href="'.$valueSplit.'" style="color:#CCEEFF;" target="_blank">'.$valueSplit.'</a>';
+			            else if(strpos($valueSplit,'https://')==0&&strpos($valueSplit,'https://')!==false)
+			                    $sentMsg .= ' <a href="'.$valueSplit.'" style="color:#CCEEFF;" target="_blank">'.$valueSplit.'</a>';
+
+			            else
+			                    $sentMsg .= ' '.$valueSplit;
+			    }
+			    $first = false;
+			}
 			$sql = 'INSERT INTO staff_chat."commentChat"(content, "UID", "sentTime", "commentID")
 					VALUES (:content, :UID, NOW(), :commentID);';
 			$sth = $this->conn->prepare($sql);
 			$sth->bindParam(':UID',$_SESSION['id'],PDO::PARAM_STR);
-			$sth->bindParam(':content',$content,PDO::PARAM_STR);
+			$sth->bindParam(':content',$sentMsg,PDO::PARAM_STR);
 			$sth->bindParam(':commentID',$commentID,PDO::PARAM_STR);
 			$sth->execute();
 			$ack = array(

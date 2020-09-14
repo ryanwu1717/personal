@@ -454,6 +454,11 @@ queue['commentreadtime'] = null;
 var scrollable = false;
 
 
+function expendLimit(){
+  sliceChat+= 10;
+}
+
+
 var todatDate = null;
 function init(){
   todayDate = Date.now();
@@ -499,10 +504,11 @@ function routine(){
             changeChatroom('routine',response);
           }else if(key=='chat'){
             changeChat('routine',response);
+            // changeChat('routine',response);
             changeStar('routine',response);
             changeComment('routine',response);
             changeHeart(response);
-            changeDelete(response);
+            changeDelete('routine',response);
           }else if(key == 'notification'){
             changeNotification('routine',response.notification);
           }else if(key=='readCount'){
@@ -540,8 +546,9 @@ function scrollToTag(){
   tmpTagMsg = "";
   tagType = "";
 }
-function changeDelete(data){
-   $.each(data.result.delete.new,function(){
+function changeDelete(type,data){
+  if(type == 'saveChat'){
+    $.each(data.delete.delete,function(){
       $(`[name=outgoingBox][data-senttime="${this.sentTime}"]`).html(`
         <div class="d-flex flex-row-reverse bd-highlight">
           <div class="p-2 bd-highlight bg-secondary text-white rounded" >
@@ -550,8 +557,8 @@ function changeDelete(data){
         </div>
         <small>${this.showTime}</small>
       `);
-   });
-   $.each(data.result.delete.newOther,function(){
+     });
+     $.each(data.delete.other,function(){
       $(`[name=incomingBox][data-senttime="${this.sentTime}"]`).html(`
         <div class="d-flex bd-highlight">
           <div class="p-2 bd-highlight bg-dark text-white rounded">
@@ -562,7 +569,31 @@ function changeDelete(data){
         <small>${this.showTime}</small>
       `);
 
-   });
+     });
+  }else if(type == 'routine'){
+    $.each(data.result.delete.new,function(){
+      $(`[name=outgoingBox][data-senttime="${this.sentTime}"]`).html(`
+        <div class="d-flex flex-row-reverse bd-highlight">
+          <div class="p-2 bd-highlight bg-secondary text-white rounded" >
+            此訊息已刪除
+          </div>
+        </div>
+        <small>${this.showTime}</small>
+      `);
+     });
+     $.each(data.result.delete.newOther,function(){
+        $(`[name=incomingBox][data-senttime="${this.sentTime}"]`).html(`
+          <div class="d-flex bd-highlight">
+            <div class="p-2 bd-highlight bg-dark text-white rounded">
+              此訊息已刪除
+            </div>
+          </div>
+          
+          <small>${this.showTime}</small>
+        `);
+
+     });
+  }
 }
 
 function changeHeart(data){
@@ -822,6 +853,7 @@ function notifyUnread(){
 var staffStatus;
 function changeChat(type,data){
   // $('[name=chatBox]').html("");
+  console.log('in');
   $('[name=msgSendNow]').remove();
 
   if(chatID==-1){
@@ -835,6 +867,12 @@ function changeChat(type,data){
     for(var i = 0; i<parseInt(data.result.chat.count) ; i++){
       newChat.push(data.chat[data.chat.length-(1+i)]);
     }
+  }
+
+  if(type == 'saveChat'){
+    console.log('insave');
+    $('[name=chatBox]').html("");
+    newChat = data.tmpchat;
   }
   $(newChat).each(function(){
     var mydate = this.fullsentTime.split(' ')[0];
@@ -853,7 +891,7 @@ function changeChat(type,data){
         `<div class="text-left incoming_msg" name="incomingBox" data-sentTime="${this.fullsentTime}">
           <div class=""> <span name="tooltipOnlineTime" data-id=${this.UID}  data-toggle="tooltip" data-placement="right" title="搜尋中...">${this.UID},${this.staff_name}</span></div>
           <div class="d-flex bd-highlight" >
-            <div class="p-2 bd-highlight bg-dark text-white rounded"  name = 'incomeChatbox' data-content="${encodeURIComponent(this.content)}" data-sentTime="${this.fullsentTime}">
+            <div class="w-75 p-2 bd-highlight bg-dark text-white rounded text-break"  name = 'incomeChatbox' data-content="${encodeURIComponent(this.content)}" data-sentTime="${this.fullsentTime}">
             ${this.content.replace(/style="color:#FFFFFF;"/g,'style="color:#CCEEFF;"').replace('<a href="/chat/','<a href="#" data-toggle="modal" data-target="#basicModal" data-type="file" data-href="/chat/')}
             </div>
           </div>
@@ -873,7 +911,7 @@ function changeChat(type,data){
       $('[name=chatBox]').append(
         '<div name="outgoingBox" class="text-right outgoing_msg" data-sentTime="'+this.fullsentTime+'">'+
           '<div class="d-flex flex-row-reverse bd-highlight">'+
-            '<div class="p-2 bd-highlight bg-secondary text-white rounded" name="contentBox" ondblclick="ondblclickMessage(this)" data-content="'+encodeURIComponent(this.content)+'" data-sentTime="'+this.fullsentTime+'">'+
+            '<div class="w-75 p-2 bd-highlight bg-secondary text-white rounded text-break" name="contentBox" ondblclick="ondblclickMessage(this)" data-content="'+encodeURIComponent(this.content)+'" data-sentTime="'+this.fullsentTime+'">'+
               this.content.replace('<a href="/chat/','<a href="#" data-toggle="modal" data-target="#basicModal" data-type="file" data-href="/chat/')+
             '</div>'+
           '</div>'+
@@ -932,7 +970,11 @@ function inMoreFunction(){
     // holds the start time
     var start;
     var touchtime = 0;
-    $("[name=contentBox]").on("click", function() {
+    $('[name=moreFunctionDrop]').remove();
+
+
+    $('[name=contentBox]').on("click", function() {
+
         if (touchtime == 0) {
             // set first click
             touchtime = new Date().getTime();
@@ -946,7 +988,7 @@ function inMoreFunction(){
               // console.log($(this).data('content'));
               // $(this).hide();
              $(this).prepend(
-              `<div class="btn-group dropleft">
+              `<div class="btn-group dropleft" name="moreFunctionDrop">
                 <div class="dropdown-menu show" aria-labelledby="dropdownMenuButton" name="dropdownRightClick">
                 <button class="dropdown-item" data-toggle="modal" data-target="#basicModal" data-type="reportMessage" data-senttime="${$(this).data('senttime')}" data-content="${$(this).data('content')}" name="dropdownItemReport">轉傳訊息</button>
                 <button class="dropdown-item" data-toggle="modal" data-target="#basicModal" data-type="deleteMessage" data-senttime="${$(this).data('senttime')}" name="dropdownItemDelete">刪除訊息</button>
@@ -954,9 +996,14 @@ function inMoreFunction(){
               </div>`);
               touchtime = 0;
                $('body').mouseup(function(e){
-                  if(1 == e.which){
-                    $('[name="dropdownRightClick"]').hide();
+
+                  if(1 == e.which && $('[name=moreFunctionDrop]').is(":visible")){
+                    $('[name=moreFunctionDrop]').hide();
+                    setTimeout(function(){
+                      $('[name=moreFunctionDrop]').remove();
+                    }, 200);
                   }
+                  
                 });
             } else {
                 // not a double click so set as a new first click
@@ -977,23 +1024,30 @@ function inMoreFunction(){
             // console.log($(this).data('content'));
             // $(this).hide();
            $(this).append(
-            `<div class="btn-group dropright">
+            `<div class="btn-group dropright" name="moreFunctionDrop">
               <div class="dropdown-menu show" aria-labelledby="dropdownMenuButton" name="dropdownRightClick">
               <button class="dropdown-item" data-toggle="modal" data-target="#basicModal" data-type="reportMessage" data-senttime="${$(this).data('senttime')}" data-content="${$(this).data('content')}" name="dropdownItemReport">轉傳訊息</button>
               
             </div>`);
             touchtime = 0;
-             $('body').mouseup(function(e){
-                if(1 == e.which){
-                  $('[name="dropdownRightClick"]').hide();
-                }
-              });
+             // $('body').mouseup(function(e){
+             //     if(1 == e.which && $('[name=moreFunctionDrop]').is(":visible")){
+             //        $('[name=moreFunctionDrop]').hide();
+             //        setTimeout(function(){
+             //          $('[name=moreFunctionDrop]').remove();
+             //        }, 200);
+             //      }else if (1 == e.which && !($('[name=moreFunctionDrop]').is(":visible"))){
+             //          $('[name=moreFunctionDrop]').remove();
+                    
+             //      }
+             //  });
           } else {
               // not a double click so set as a new first click
               touchtime = new Date().getTime();
           }
       }
     });
+
     // $("[name=contentBox]").on( 'mousedown', function( e ) {
     //     start = new Date().getTime();
          
@@ -1065,7 +1119,7 @@ function ondblclickMessage(message){
 }
 
 function reportMessage(senttime,content){
-  $('[name="dropdownRightClick"]').remove();
+  $('[name="moreFunctionDrop"]').remove();
   $('#basicModal .modal-title').html('轉傳訊息');
   
   $('#basicModal .modal-body').html(
@@ -1154,6 +1208,7 @@ function reportMessage(senttime,content){
                       success:function(response){
                         console.log(response);
                         updateReport(orgCommentID,response);
+                        $('#basicModal').modal('hide');
                       }
                     });
                   }
@@ -1197,7 +1252,7 @@ function updateReport(orgCommentID , newCommentID){
 }
 
 function deleteMessage(senttime){
-  $('[name="dropdownRightClick"]').remove();
+  $('[name="moreFunctionDrop"]').remove();
 
   $('#basicModal .modal-title').text('刪除訊息');
   $('#basicModal .modal-body').html('確認刪除此訊息?');
@@ -1334,18 +1389,39 @@ var chatName = '';
 $('#tool_dropdown').hide();
 
 
+function inSaveChat(chatInfo){
+  console.log(chatInfo.chat);
+  changeChat('saveChat',chatInfo);
+  changeDelete('saveChat',chatInfo);
+}
+
 function getTarget(_chatID,_chatName){
   // // console.log($(div).attr("data-name"));
   // // chatID=$(div).attr("data-name");
   // scrollable = false;
   // last['count'] = 0;
   // $('[name=chatBox]').html("");
-  if(chatID!=_chatID)
+  if(chatID!=_chatID){
+    console.log(chatID,_chatID);
+    
+
     $('[name=chatBox]').html(
       '<div class="spinner-border text-primary" role="status">'+
         '<span class="sr-only">Loading...</span>'+
       '</div>'
     );
+    $.ajax({
+      url:'/chat/saveChat/'+_chatID,
+      type:'get',
+      data:{},
+      dataType:'json',
+      success:function(response){
+        console.log(response);
+        inSaveChat(response);
+      }
+    });
+  }
+    
   chatName = decodeURIComponent(_chatName);
   $('[name=navbarChatroomTitle]').text(chatName);
   $('#tool_dropdown').show();
